@@ -132,6 +132,7 @@ const config = session.saved_config || {};
 if (session.systemInstructions) { 
   config.instructions = session.systemInstructions;
   config.tools = allToolSchemas;
+  config.voice="ballad"
 }
 
 
@@ -144,6 +145,8 @@ function tryConnectModel() {
   if (session.systemInstructions) { 
     config.instructions = session.systemInstructions;
     config.tools = allToolSchemas;
+    config.voice="ballad"
+
   }
       // === Belangrijk: als we systemInstructions hebben, stuur ze dan naar de frontend via "session.instructions" ===
       if (session.systemInstructions && session.frontendConn) {
@@ -172,7 +175,7 @@ function tryConnectModel() {
       type: "session.update",
       session: {
         modalities: ["text", "audio"],
-        turn_detection: { type: "server_vad" },
+        turn_detection: { type: "server_vad", silence_duration_ms: 1000 },
         voice: "ash",
         input_audio_transcription: { model: "whisper-1" },
         input_audio_format: "g711_ulaw",
