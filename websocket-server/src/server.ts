@@ -4,6 +4,7 @@ import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import http from "http";
 import { readFileSync } from "fs";
+import moment from "moment";
 import { join } from "path";
 import cors from "cors";
 import {
@@ -11,6 +12,10 @@ import {
   handleFrontendConnection,
 } from "./sessionManager";
 import functions from "./functionHandlers";
+import { session } from "./sessionManager"; 
+import { phoneLoginServer } from "./api/apiServer";
+import { createTicket, getTicketHistorySummary } from "./api/tickets";
+import {getDocumentById} from "./api/documents";
 
 dotenv.config();
 
@@ -37,7 +42,54 @@ app.get("/public-url", (req, res) => {
   res.json({ publicUrl: PUBLIC_URL });
 });
 
-app.all("/twiml", (req, res) => {
+app.all("/twiml", async (req, res) => {
+  const fromNumber = req.body.From;
+  const toNumber = req.body.To;
+  const callSid = req.body.CallSid;
+  const callerCountry = req.body.CallerCountry;
+  const callerState = req.body.CallerState;
+  const callerCity = req.body.CallerCity;
+  console.log(req.body)
+
+  // Sla ze op in je "session" (of in een globale variabele, of waar je maar wilt)
+  session.fromNumber = fromNumber;
+  session.toNumber = toNumber;
+
+  const phoneLoginToken = await phoneLoginServer(toNumber);
+  session.apiToken = phoneLoginToken;
+
+  
+
+    // 2) Maak ticket aan:
+  const newTicket = await createTicket({
+    status:    "New",
+    subject:   `Incoming phone call ${fromNumber} -> ${toNumber}`,
+    escalated: false,
+    isSpam:    false,
+    isClosed:  false,
+    channel:   "Phone",
+    channelID: session.channelID,
+    uid:       session.fromNumber,
+    twilio_CallSid : callSid
+
+  });
+  session.ticketID = newTicket.ticketID; // Bewaar in session
+
+  // 3) Get system instructions. 
+  const historySummary = await getTicketHistorySummary(session.ticketID);
+  console.log(historySummary)
+
+  const document = await getDocumentById(60, true);
+  const now = moment().utc().format('YYYY-MM-DD HH:mm:ss');
+  const instructions = `${document.content}\n\n# Caller details\n\nPhone number: ${fromNumber}\nCountry: ${callerCountry}\nState: ${callerState}\nCity: ${callerCity}\nCurrent UTC 24h DateTime: ${now}\n\n${historySummary}\n\n`; 
+  console.log(instructions )
+
+
+  session.systemInstructions = instructions;
+
+
+
+
   const wsUrl = new URL(PUBLIC_URL);
   wsUrl.protocol = "wss:";
   wsUrl.pathname = `/call`;
@@ -68,7 +120,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   if (type === "call") {
     if (currentCall) currentCall.close();
     currentCall = ws;
-    handleCallConnection(currentCall, OPENAI_API_KEY);
+    handleCallConnection(currentCall, session.openAIApiKey || "");
   } else if (type === "logs") {
     if (currentLogs) currentLogs.close();
     currentLogs = ws;

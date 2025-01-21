@@ -96,12 +96,17 @@ export default function ChecklistAndConfig({
     };
 
     pollChecks();
-    const intervalId = setInterval(() => polling && pollChecks(), 1000);
+    
+    if (!ready){
+      const intervalId = setInterval(() => polling && pollChecks(), 10000);
     return () => {
       polling = false;
       clearInterval(intervalId);
-    };
+    };}
+    
   }, [currentNumberSid, setSelectedPhoneNumber]);
+
+  
 
   const updateWebhook = async () => {
     if (!currentNumberSid || !appendedTwimlUrl) return;

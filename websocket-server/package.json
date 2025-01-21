@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "nodemon --watch 'src/**/*' --watch '.env' --ext 'ts,js,xml,env' --exec 'ts-node' src/server.ts",
+    "dev": "set NODE_TLS_REJECT_UNAUTHORIZED=0 &&  nodemon --watch \"src/**/*\" --watch .env --ext ts,js,xml,env --exec \"npx ts-node\" src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,18 +15,25 @@
   "dependencies": {
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.12",
+    "axios": "^1.7.9",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "httpdispatcher": "^2.2.0",
-    "ts-node": "^10.9.2",
+    "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
+    "moment": "^2.30.1",
     "typescript": "^5.5.4",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/axios": "^0.14.4",
     "@types/cors": "^2.8.17",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^5.0.0",
-    "nodemon": "^2.0.22"
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/moment": "^2.13.0",
+    "nodemon": "^2.0.22",
+    "ts-node": "^10.9.2"
   }
 }

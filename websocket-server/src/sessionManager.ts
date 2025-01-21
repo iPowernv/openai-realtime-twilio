@@ -1,5 +1,7 @@
 import { RawData, WebSocket } from "ws";
 import functions from "./functionHandlers";
+import { createTicketMessage } from './api/ticketMessages';
+import { TicketMessageCreateDTO } from './types/TicketMessage';
 
 interface Session {
   twilioConn?: WebSocket;
@@ -11,9 +13,20 @@ interface Session {
   responseStartTimestamp?: number;
   latestMediaTimestamp?: number;
   openAIApiKey?: string;
+  fromNumber?: string;
+  toNumber?: string;
+  apiToken?: string;
+  channelID?: number;
+  ticketID?: number;
+  systemInstructions?: string;
+  messageID?:number;
 }
 
 let session: Session = {};
+export { session };
+
+const allToolSchemas = functions.map(f => f.schema);
+
 
 export function handleCallConnection(ws: WebSocket, openAIApiKey: string) {
   cleanupConnection(session.twilioConn);
@@ -115,10 +128,30 @@ function handleFrontendMessage(data: RawData) {
   }
 }
 
+const config = session.saved_config || {};
+if (session.systemInstructions) { 
+  config.instructions = session.systemInstructions;
+  config.tools = allToolSchemas;
+}
+
+
+
 function tryConnectModel() {
   if (!session.twilioConn || !session.streamSid || !session.openAIApiKey)
     return;
   if (isOpen(session.modelConn)) return;
+  const config = session.saved_config || {};
+  if (session.systemInstructions) { 
+    config.instructions = session.systemInstructions;
+    config.tools = allToolSchemas;
+  }
+      // === Belangrijk: als we systemInstructions hebben, stuur ze dan naar de frontend via "session.instructions" ===
+      if (session.systemInstructions && session.frontendConn) {
+        jsonSend(session.frontendConn, {
+          type: "session.instructions",
+          instructions: session.systemInstructions,
+        });
+      }
 
   session.modelConn = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
@@ -131,7 +164,10 @@ function tryConnectModel() {
   );
 
   session.modelConn.on("open", () => {
-    const config = session.saved_config || {};
+
+
+
+
     jsonSend(session.modelConn, {
       type: "session.update",
       session: {
@@ -141,26 +177,98 @@ function tryConnectModel() {
         input_audio_transcription: { model: "whisper-1" },
         input_audio_format: "g711_ulaw",
         output_audio_format: "g711_ulaw",
+        tools: allToolSchemas,
         ...config,
       },
     });
   });
+
+    
+  
+    
 
   session.modelConn.on("message", handleModelMessage);
   session.modelConn.on("error", closeModel);
   session.modelConn.on("close", closeModel);
 }
 
-function handleModelMessage(data: RawData) {
+async function handleModelMessage(data: RawData) {
   const event = parseMessage(data);
   if (!event) return;
-
   jsonSend(session.frontendConn, event);
+  console.log(event.type)
 
   switch (event.type) {
+    case "session.created":
+      console.log("==> Session is created", event.session);
+// Stuur daarna de "eerste user-bericht" als conversation.item.create
+const greetEvent = {
+  type: "conversation.item.create",
+  item: {
+    type: "message",
+    role: "user",
+    content: [
+      {
+        type: "input_text",
+        text: "Greet the caller in their own language, using a time-of-day awareness. For example, if it is morning in their local time zone, say “Good morning,” if it is afternoon, say “Good afternoon,” and so on (even if the language is not English, adapt accordingly). If you know the caller’s name from the EndUser information, address them by name, e.g. “Good afternoon, Thierry De Decker, welcome to iPower. I am AnswerPal, your 24 on 7 digital assistant. How can I help you today?” If no name is available, greet them in a polite, friendly manner.",
+      },
+    ],
+  },
+};
+jsonSend(session.modelConn, greetEvent);
+
+  // Stuur daarna de response.create:
+  const responseEvent = {
+    type: "response.create",
+    response: {
+      // Indien je geen speciale overrides nodig hebt, volstaat leeg of:
+      modalities: ["text", "audio"],
+      // ...
+    },
+  };
+  jsonSend(session.modelConn, responseEvent);
+  break;
+
+  case "error":
+    console.error("==> Error:", event.error);
+    break;
+  case "session.updated":
+    console.log("==> Session is updated to:", event.session);
+    break;
     case "input_audio_buffer.speech_started":
       handleTruncation();
       break;
+      case "conversation.item.input_audio_transcription.completed":
+             {
+               const { transcript } = event;
+               if (session.ticketID) 
+                {
+                  const dto: TicketMessageCreateDTO = {
+                    channel: 'Phone',
+                    channelID: session.channelID || 0,
+                    ticketID: session.ticketID,
+                    message: transcript,
+                    senderType: 'EndUser',
+                    fromNumber: session.fromNumber || '',
+                    toNumber: session.toNumber || '',
+                    incoming:true,
+                    uid: session.fromNumber || '',
+
+                    // ...
+                  };
+                  try {
+                    const newMessageDetail = await createTicketMessage(dto);
+                    session.messageID=newMessageDetail.messageID;
+                    console.log('Created message detail:', newMessageDetail);
+                  } catch (err) {
+                    console.error('Failed to create enduser ticket message:', err);
+                    console.log(dto);
+                  }
+               }
+             }
+              break;
+
+
 
     case "response.audio.delta":
       if (session.twilioConn && session.streamSid) {
@@ -181,6 +289,34 @@ function handleModelMessage(data: RawData) {
         });
       }
       break;
+
+      case "response.audio_transcript.done":
+             {
+               const { transcript } = event;
+
+               if (session.ticketID) 
+                {
+                  const dto: TicketMessageCreateDTO = {
+                    channel: 'Phone',
+                    channelID: session.channelID || 0,
+                    ticketID: session.ticketID,
+                    message: transcript,
+                    senderType: 'CustomerRep',
+                    fromNumber: session.fromNumber || '',
+                    toNumber: session.toNumber || '',
+                    incoming:false,
+                    uid: session.fromNumber || '',
+                  };
+                  try {
+                    const newMessageDetail = await createTicketMessage(dto);
+                    console.log('Created message detail:', newMessageDetail);
+                  } catch (err) {
+                    console.error('Failed to create customerrep ticket message:', err);
+                    console.log(dto);
+                  }
+               }
+             }
+              break;
 
     case "response.output_item.done": {
       const { item } = event;

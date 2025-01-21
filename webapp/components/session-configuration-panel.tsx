@@ -19,11 +19,13 @@ import { useBackendTools } from "@/lib/use-backend-tools";
 interface SessionConfigurationPanelProps {
   callStatus: string;
   onSave: (config: any) => void;
+  sessionInstructions?: string;
 }
 
 const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
   callStatus,
   onSave,
+  sessionInstructions,
 }) => {
   const [instructions, setInstructions] = useState(
     "You are a helpful assistant in a phone call."
@@ -43,6 +45,22 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
   // Custom hook to fetch backend tools every 3 seconds
   const backendTools = useBackendTools("http://localhost:8081/tools", 3000);
 
+  // 1) Als sessionInstructions verandert, overschrijf local instructions
+  //    én doe direct handleSave() als je wilt dat het automatisch geüpload wordt.
+  useEffect(() => {
+    if (sessionInstructions) {
+      console.log("Auto-applying sessionInstructions:", sessionInstructions);
+      setInstructions(sessionInstructions);
+
+      // Automatisch “save” uitvoeren, zodat we niet eerst op de knop moeten klikken.
+      // Let wel op dat je hier niet in een eindeloze lus komt.
+      // We doen bv. alleen handleSave als sessionInstructions != instructions.
+      if (sessionInstructions !== instructions) {
+        handleSave();
+      }
+    }
+  }, [sessionInstructions]);
+  
   // Track changes to determine if there are unsaved modifications
   useEffect(() => {
     setHasUnsavedChanges(true);

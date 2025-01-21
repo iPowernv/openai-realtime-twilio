@@ -17,6 +17,9 @@ const CallInterface = () => {
   const [callStatus, setCallStatus] = useState("disconnected");
   const [ws, setWs] = useState<WebSocket | null>(null);
 
+  // Houd hier de systemInstructions bij
+  const [sessionInstructions, setSessionInstructions] = useState("");
+
   useEffect(() => {
     if (allConfigsReady && !ws) {
       const newWs = new WebSocket("ws://localhost:8081/logs");
@@ -26,8 +29,19 @@ const CallInterface = () => {
         setCallStatus("connected");
       };
 
+      // -- Combineer alle onmessage logic in één functie --
       newWs.onmessage = (event) => {
         const data = JSON.parse(event.data);
+
+        // 1) Check voor 'session.instructions'
+        if (data.type === "session.instructions") {
+          console.log("Got instructions from server:", data.instructions);
+          setSessionInstructions(data.instructions || "");
+          return; // Voorkom dat we deze data nog naar handleRealtimeEvent sturen
+        }
+
+        // 2) Anders roepen we handleRealtimeEvent aan 
+        //    (zodat conversation.item enz. werkt)
         console.log("Received logs event:", data);
         handleRealtimeEvent(data, setItems);
       };
@@ -55,8 +69,10 @@ const CallInterface = () => {
         <div className="grid grid-cols-12 gap-4 h-full">
           {/* Left Column */}
           <div className="col-span-3 flex flex-col h-full overflow-hidden">
+            {/* Belangrijk: geef sessionInstructions als prop mee! */}
             <SessionConfigurationPanel
               callStatus={callStatus}
+              sessionInstructions={sessionInstructions}
               onSave={(config) => {
                 if (ws && ws.readyState === WebSocket.OPEN) {
                   const updateEvent = {

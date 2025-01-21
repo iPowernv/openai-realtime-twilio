@@ -2,7 +2,8 @@ import { Item } from "@/components/types";
 
 export default function handleRealtimeEvent(
   ev: any,
-  setItems: React.Dispatch<React.SetStateAction<Item[]>>
+  setItems: React.Dispatch<React.SetStateAction<Item[]>>,
+  onSystemInstructions?: (text: string) => void
 ) {
   // Helper function to create a new item with default fields
   function createNewItem(base: Partial<Item>): Item {
@@ -50,6 +51,14 @@ export default function handleRealtimeEvent(
           status: "running",
         }),
       ]);
+      break;
+    }
+
+    case "session.instructions": {
+      console.log("Received instructions:", ev.instructions);
+      if (onSystemInstructions) {
+        onSystemInstructions(ev.instructions);
+      }
       break;
     }
 
