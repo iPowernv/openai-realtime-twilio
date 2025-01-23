@@ -12,7 +12,9 @@ import {
   SendMessageDTO,
   ExecuteActionRequest,
   ExecuteActionResponse,
-  TicketMessageCreateDTO
+  TicketMessageCreateDTO,
+  LikeDislikeResponse,
+  EscalateRequest
 } from '../types/TicketMessage';
 import { PaginatedResult } from '../types/PaginatedResult';
 import { PromptDocsExtendedDTO } from '../types/PromptDocument';
@@ -115,8 +117,9 @@ export const importEmailsForCustomer = async (): Promise<void> => {
  * 
  * @param messageId - The ID of the message
  */
-export const generateAiReply = async (messageId: number): Promise<void> => {
-  await api.post(`/ticketMessages/${messageId}/reply`);
+export const generateAiReply = async (messageId: number): Promise<string> => {
+  const response= await api.post(`/ticketMessages/${messageId}/reply`);
+  return response.data.reply;
 };
 
 /**
@@ -237,5 +240,56 @@ export const createTicketMessage = async (
   data: TicketMessageCreateDTO
 ): Promise<TicketMessageDetailDTO> => {
   const response = await api.post<TicketMessageDetailDTO>('/ticketMessages/create-new', data);
+  return response.data;
+};
+
+
+/**
+ * Escaleer een ticketMessage op basis van ticketToken (anonieme flow).
+ * 
+ * POST /ticketMessages/{ticketToken}/escalate
+ */
+export const escalateTicketMessageByToken = async (
+  ticketToken: string,
+  data: EscalateRequest
+): Promise<string> => {
+  const response = await api.post(`/ticketMessages/${ticketToken}/escalate`, data);
+  return response.data.message;
+};
+
+/**
+ * Escaleer een ticketMessage op basis van messageId (ingelogde flow).
+ * 
+ * POST /ticketMessages/{messageId}/escalate-by-id
+ */
+export const escalateTicketMessageById = async (
+  messageId: number,
+  data: EscalateRequest | null
+): Promise<string> => {
+  // Als data null of undefined is, stuur een leeg object
+  const payload = data || {};
+
+  // Axios zal dit dan als JSON posten i.p.v. x-www-form-urlencoded
+  const response = await api.post(`/ticketMessages/${messageId}/escalate-by-id`, payload);
+
+  return response.data.message;
+};
+
+/**
+ * Like/dislike een bericht via ticketToken.
+ * 
+ * GET /ticketMessages/{ticketToken}/like-dislike?like=true/false
+ * Returns: { agentAvailable: boolean, customerRepName: string }
+ */
+export const likeOrDislikeMessage = async (
+  ticketToken: string,
+  like: boolean
+): Promise<LikeDislikeResponse> => {
+  const response = await api.get<LikeDislikeResponse>(
+    `/ticketMessages/${ticketToken}/like-dislike`,
+    {
+      params: { like },
+    }
+  );
   return response.data;
 };

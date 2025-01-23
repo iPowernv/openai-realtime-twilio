@@ -1,3 +1,4 @@
+//src/server.ts
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from "http";
@@ -70,7 +71,9 @@ app.all("/twiml", async (req, res) => {
     channel:   "Phone",
     channelID: session.channelID,
     uid:       session.fromNumber,
-    twilio_CallSid : callSid
+    twilio_CallSid : callSid,
+    
+
 
   });
   session.ticketID = newTicket.ticketID; // Bewaar in session
@@ -133,3 +136,13 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+
+function jsonSend(ws: WebSocket | undefined, obj: unknown) {
+  if (!isOpen(ws)) return;
+  ws.send(JSON.stringify(obj));
+}
+
+function isOpen(ws?: WebSocket): ws is WebSocket {
+  return !!ws && ws.readyState === WebSocket.OPEN;
+}

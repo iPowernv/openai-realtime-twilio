@@ -1,3 +1,4 @@
+//src/sessionManager.ts
 import { RawData, WebSocket } from "ws";
 import functions from "./functionHandlers";
 import { createTicketMessage } from './api/ticketMessages';
@@ -132,7 +133,7 @@ const config = session.saved_config || {};
 if (session.systemInstructions) { 
   config.instructions = session.systemInstructions;
   config.tools = allToolSchemas;
-  config.voice="ballad"
+  config.voice="coral"
 }
 
 
@@ -145,7 +146,7 @@ function tryConnectModel() {
   if (session.systemInstructions) { 
     config.instructions = session.systemInstructions;
     config.tools = allToolSchemas;
-    config.voice="ballad"
+    config.voice="coral"
 
   }
       // === Belangrijk: als we systemInstructions hebben, stuur ze dan naar de frontend via "session.instructions" ===
@@ -220,7 +221,6 @@ const greetEvent = {
 };
 jsonSend(session.modelConn, greetEvent);
 
-  // Stuur daarna de response.create:
   const responseEvent = {
     type: "response.create",
     response: {

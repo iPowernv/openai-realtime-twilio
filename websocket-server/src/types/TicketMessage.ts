@@ -216,3 +216,13 @@ export interface TicketMessageAttachmentDTO {
   isCustomerRepProvided: boolean;
   accessToken: string;         // nodigt om “file/{accessToken}” te maken
 }
+
+export interface EscalateRequest {
+  email?: string;
+  feedbackComment?: string;
+}
+
+export interface LikeDislikeResponse {
+  agentAvailable: boolean;
+  customerRepName: string;
+}
