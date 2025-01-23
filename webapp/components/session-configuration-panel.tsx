@@ -43,7 +43,7 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Custom hook to fetch backend tools every 3 seconds
-  const backendTools = useBackendTools("http://localhost:8081/tools", 3000);
+  const backendTools = useBackendTools("http://10.10.10.24:8081/tools", 3000);
 
   // 1) Als sessionInstructions verandert, overschrijf local instructions
   //    én doe direct handleSave() als je wilt dat het automatisch geüpload wordt.

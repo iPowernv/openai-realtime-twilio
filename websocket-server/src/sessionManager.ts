@@ -47,6 +47,7 @@ export function handleCallConnection(ws: WebSocket, openAIApiKey: string) {
     session.latestMediaTimestamp = undefined;
     if (!session.frontendConn) session = {};
   });
+  tryConnectModel();
 }
 
 export function handleFrontendConnection(ws: WebSocket) {
@@ -139,6 +140,16 @@ if (session.systemInstructions) {
 
 
 function tryConnectModel() {
+  console.log("Bearer 1: ", session.openAIApiKey);
+  if (!session.twilioConn || !session.streamSid) return;
+  // << Nieuw: check of key is gezet
+  if (!session.openAIApiKey) {
+    console.log("No openAIApiKey yet; skipping tryConnectModel()");
+    return;
+  }
+  if (session.modelConn && session.modelConn.readyState === WebSocket.OPEN) {
+    return; // Already connected
+  }
   if (!session.twilioConn || !session.streamSid || !session.openAIApiKey)
     return;
   if (isOpen(session.modelConn)) return;
@@ -156,6 +167,8 @@ function tryConnectModel() {
           instructions: session.systemInstructions,
         });
       }
+
+      console.log("Bearer 2: ", session.openAIApiKey);
 
   session.modelConn = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",

@@ -22,7 +22,7 @@ const CallInterface = () => {
 
   useEffect(() => {
     if (allConfigsReady && !ws) {
-      const newWs = new WebSocket("ws://localhost:8081/logs");
+      const newWs = new WebSocket("ws://10.10.10.24:8081/logs");
 
       newWs.onopen = () => {
         console.log("Connected to logs websocket");

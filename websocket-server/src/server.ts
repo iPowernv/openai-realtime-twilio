@@ -13,21 +13,19 @@ import {
   handleFrontendConnection,
 } from "./sessionManager";
 import functions from "./functionHandlers";
-import { session } from "./sessionManager"; 
 import { phoneLoginServer } from "./api/apiServer";
+import { session } from "./sessionManager"; 
 import { createTicket, getTicketHistorySummary } from "./api/tickets";
 import {getDocumentById} from "./api/documents";
 
-dotenv.config();
+dotenv.config({
+  path: `.env.${process.env.NODE_ENV || 'development'}`,
+});
 
 const PORT = parseInt(process.env.PORT || "8081", 10);
 const PUBLIC_URL = process.env.PUBLIC_URL || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-
-if (!OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY environment variable is required");
-  process.exit(1);
-}
+console.log ("Openaikey: "+ OPENAI_API_KEY);
 
 const app = express();
 app.use(cors());
@@ -41,6 +39,11 @@ const twimlTemplate = readFileSync(twimlPath, "utf-8");
 
 app.get("/public-url", (req, res) => {
   res.json({ publicUrl: PUBLIC_URL });
+});
+
+// Definieer een route voor "/"
+app.get('/', (req, res) => {
+  res.send('Hello World! This is the root route.');
 });
 
 app.all("/twiml", async (req, res) => {
@@ -133,8 +136,8 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
 
 

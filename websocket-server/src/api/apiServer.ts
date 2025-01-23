@@ -5,19 +5,25 @@ import { session } from '../sessionManager';
 import https from 'https';
 import jwt from 'jsonwebtoken';
 
-dotenv.config();
+dotenv.config({
+  path: `.env.${process.env.NODE_ENV || 'development'}`,
+});
 
 const agent = new https.Agent({
   rejectUnauthorized: false, // verifieert het self-signed cert niet
 });
 
-const api = axios.create({
-  baseURL: 'https://localhost:7284/api',
-  httpsAgent: agent,
-});
 
 const baseURL = process.env.VITE_API_BASE_URL;
 const fixedCode = process.env.PHONE_FIXED_CODE;
+
+const api = axios.create({
+  baseURL: baseURL,
+  httpsAgent: agent,
+});
+
+console.log("fixedcode:"+ fixedCode);  
+console.log("baseurl: "+ baseURL);
 
 // Interceptors in Node:
 api.interceptors.request.use((config) => {
@@ -42,8 +48,8 @@ api.interceptors.response.use(
 );
 
 export async function phoneLoginServer(phoneNumber: string): Promise<string> {
-  console.log(fixedCode);  
-  console.log(baseURL);
+  console.log("fixedcode:"+ fixedCode);  
+  console.log("baseurl: "+ baseURL);
   const response = await api.post('/auth/phone-login', {
     customerToken: fixedCode,
     phoneNumber: phoneNumber

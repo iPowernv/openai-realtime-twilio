@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Circle, CheckCircle, Loader2 } from "lucide-react";
+import { Circle, CheckCircle } from "lucide-react";
 import { PhoneNumber } from "@/components/types";
 import {
   Select,
@@ -34,19 +34,13 @@ export default function ChecklistAndConfig({
   const [hasCredentials, setHasCredentials] = useState(false);
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [currentNumberSid, setCurrentNumberSid] = useState("");
-  const [currentVoiceUrl, setCurrentVoiceUrl] = useState("");
+  // Removed currentVoiceUrl & references to Twilio webhook
 
-  const [publicUrl, setPublicUrl] = useState("");
+  // Checking only local server, no publicUrl or ngrok
   const [localServerUp, setLocalServerUp] = useState(false);
-  const [publicUrlAccessible, setPublicUrlAccessible] = useState(false);
 
+  // We only track whether all steps pass
   const [allChecksPassed, setAllChecksPassed] = useState(false);
-  const [webhookLoading, setWebhookLoading] = useState(false);
-  const [ngrokLoading, setNgrokLoading] = useState(false);
-
-  const appendedTwimlUrl = publicUrl ? `${publicUrl}/twiml` : "";
-  const isWebhookMismatch =
-    appendedTwimlUrl && currentVoiceUrl && appendedTwimlUrl !== currentVoiceUrl;
 
   useEffect(() => {
     let polling = true;
@@ -70,25 +64,19 @@ export default function ChecklistAndConfig({
             numbersData.find((p: PhoneNumber) => p.sid === currentNumberSid) ||
             numbersData[0];
           setCurrentNumberSid(selected.sid);
-          setCurrentVoiceUrl(selected.voiceUrl || "");
           setSelectedPhoneNumber(selected.friendlyName || "");
         }
 
-        // 3. Check local server & public URL
-        let foundPublicUrl = "";
+        // 3. Check local server
         try {
-          const resLocal = await fetch("http://localhost:8081/public-url");
+          const resLocal = await fetch("http://10.10.10.24:8081/public-url");
           if (resLocal.ok) {
-            const pubData = await resLocal.json();
-            foundPublicUrl = pubData?.publicUrl || "";
             setLocalServerUp(true);
-            setPublicUrl(foundPublicUrl);
           } else {
             throw new Error("Local server not responding");
           }
         } catch {
           setLocalServerUp(false);
-          setPublicUrl("");
         }
       } catch (err) {
         console.error(err);
@@ -96,70 +84,23 @@ export default function ChecklistAndConfig({
     };
 
     pollChecks();
-    
-    if (!ready){
+
+    if (!ready) {
       const intervalId = setInterval(() => polling && pollChecks(), 10000);
-    return () => {
-      polling = false;
-      clearInterval(intervalId);
-    };}
-    
-  }, [currentNumberSid, setSelectedPhoneNumber]);
-
-  
-
-  const updateWebhook = async () => {
-    if (!currentNumberSid || !appendedTwimlUrl) return;
-    try {
-      setWebhookLoading(true);
-      const res = await fetch("/api/twilio/numbers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumberSid: currentNumberSid,
-          voiceUrl: appendedTwimlUrl,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to update webhook");
-      setCurrentVoiceUrl(appendedTwimlUrl);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setWebhookLoading(false);
+      return () => {
+        polling = false;
+        clearInterval(intervalId);
+      };
     }
-  };
+  }, [currentNumberSid, setSelectedPhoneNumber, ready]);
 
-  const checkNgrok = async () => {
-    if (!localServerUp || !publicUrl) return;
-    setNgrokLoading(true);
-    let success = false;
-    for (let i = 0; i < 5; i++) {
-      try {
-        const resTest = await fetch(publicUrl + "/public-url");
-        if (resTest.ok) {
-          setPublicUrlAccessible(true);
-          success = true;
-          break;
-        }
-      } catch {
-        // retry
-      }
-      if (i < 4) {
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-    }
-    if (!success) {
-      setPublicUrlAccessible(false);
-    }
-    setNgrokLoading(false);
-  };
-
+  // Reduced the checklist to only 3 items
   const checklist = useMemo(() => {
     return [
       {
         label: "Set up Twilio account",
         done: hasCredentials,
-        description: "Then update account details in webapp/.env",
+        description: "Update account details in webapp/.env",
         field: (
           <Button
             className="w-full"
@@ -184,7 +125,6 @@ export default function ChecklistAndConfig({
                   const selected = phoneNumbers.find((p) => p.sid === value);
                   if (selected) {
                     setSelectedPhoneNumber(selected.friendlyName || "");
-                    setCurrentVoiceUrl(selected.voiceUrl || "");
                   }
                 }}
                 value={currentNumberSid}
@@ -221,82 +161,12 @@ export default function ChecklistAndConfig({
         description: "cd websocket-server && npm run dev",
         field: null,
       },
-      {
-        label: "Start ngrok",
-        done: publicUrlAccessible,
-        description: "Then set ngrok URL in websocket-server/.env",
-        field: (
-          <div className="flex items-center gap-2 w-full">
-            <div className="flex-1">
-              <Input value={publicUrl} disabled />
-            </div>
-            <div className="flex-1">
-              <Button
-                variant="outline"
-                onClick={checkNgrok}
-                disabled={ngrokLoading || !localServerUp || !publicUrl}
-                className="w-full"
-              >
-                {ngrokLoading ? (
-                  <Loader2 className="mr-2 h-4 animate-spin" />
-                ) : (
-                  "Check ngrok"
-                )}
-              </Button>
-            </div>
-          </div>
-        ),
-      },
-      {
-        label: "Update Twilio webhook URL",
-        done: !!publicUrl && !isWebhookMismatch,
-        description: "Can also be done manually in Twilio console",
-        field: (
-          <div className="flex items-center gap-2 w-full">
-            <div className="flex-1">
-              <Input value={currentVoiceUrl} disabled className="w-full" />
-            </div>
-            <div className="flex-1">
-              <Button
-                onClick={updateWebhook}
-                disabled={webhookLoading}
-                className="w-full"
-              >
-                {webhookLoading ? (
-                  <Loader2 className="mr-2 h-4 animate-spin" />
-                ) : (
-                  "Update Webhook"
-                )}
-              </Button>
-            </div>
-          </div>
-        ),
-      },
     ];
-  }, [
-    hasCredentials,
-    phoneNumbers,
-    currentNumberSid,
-    localServerUp,
-    publicUrl,
-    publicUrlAccessible,
-    currentVoiceUrl,
-    isWebhookMismatch,
-    appendedTwimlUrl,
-    webhookLoading,
-    ngrokLoading,
-    setSelectedPhoneNumber,
-  ]);
+  }, [hasCredentials, phoneNumbers, currentNumberSid, localServerUp, setSelectedPhoneNumber]);
 
   useEffect(() => {
     setAllChecksPassed(checklist.every((item) => item.done));
   }, [checklist]);
-
-  useEffect(() => {
-    if (!ready) {
-      checkNgrok();
-    }
-  }, [localServerUp, ready]);
 
   useEffect(() => {
     if (!allChecksPassed) {
